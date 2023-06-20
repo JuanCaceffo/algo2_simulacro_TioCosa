@@ -23,13 +23,23 @@ class IntervencionAFIP():Evento{
     }
 
 }
+class DivisionDeGanancias(): Evento{
+    val PORCENTAJE_BANDA = 0.3
+    override fun ejecutarEvento(tarea: Tarea) {
+        val banda = tarea.bandaACargo
+        val montoTotalIntegrantes = tarea.cobroBandaEstimado()-(tarea.cobroBandaEstimado()*0.3)
+        val montoPorIntegrante = montoTotalIntegrantes / banda?.integrantesMasLider()!!.size
+        banda?.restarDinero(montoTotalIntegrantes)
+        banda?.integrantesMasLider()!!.forEach { it.cobrar(montoPorIntegrante) }
+    }
+}
 
 object vito{
     val number: Long = 1124003822
     var tareas = mutableListOf<Tarea>()
     var bandas = mutableListOf<Banda>()
     var capital :Double = 0.0
-    val eventos = mutableListOf<Evento>()
+    val eventos = mutableSetOf<Evento>()
 
     fun tareasMesActual(): List<Tarea> =
         tareas.filter { (it.fechaCreacion.month == LocalDate.now().month) && (it.fechaCreacion.year == LocalDate.now().year)}
@@ -58,6 +68,19 @@ object vito{
             eventos.forEach { it.ejecutarEvento(tarea) }
         }
     }
+    fun activarEvento(evento: Evento){
+        eventos.add(evento)
+    }
+    fun desactivarEvento(evento: Evento){
+        validarDesactivarEventoExistente(evento)
+        eventos.remove(evento)
+    }
+    //------------ validation -----------
+    fun validarDesactivarEventoExistente(evento: Evento){
+        if(!eventos.contains(evento)){
+            throw BussinesExpetion("Para desactivar un evento este tiene que haber sido activado")
+        }
+    }
 }
 class Persona(
     var ingreso:Double,
@@ -72,9 +95,12 @@ class Persona(
     }
 }
 class Integrante(var personalidad : Personalidad){
-
+    var ingresos: Double = 0.0
     fun cambiarPersonalidad(personalidadNueva: Personalidad) {personalidad = personalidadNueva}
     fun puedeHacerTarea(tarea: Tarea) = personalidad.puedeHacerTarea(tarea)
+    fun cobrar(dinero: Double){
+        ingresos += dinero
+    }
 }
 interface Personalidad {
     fun puedeHacerTarea(tarea: Tarea): Boolean
@@ -91,7 +117,24 @@ class Cabulero() : Personalidad{
     override fun puedeHacerTarea(tarea: Tarea) = personalidades.all{it.puedeHacerTarea(tarea)}
 
 }
-//TODO: crear el resto de personalidades
+class Culposos(): Personalidad{
+    val UMBRAL_INGRESOS = 5000
+    override fun puedeHacerTarea(tarea: Tarea): Boolean = tarea.personaInvolucrada.ingreso >= UMBRAL_INGRESOS
+
+}
+class Alternatnes() : Personalidad{
+    override fun puedeHacerTarea(tarea: Tarea): Boolean = tipoPersonalidad().puedeHacerTarea(tarea)
+    fun tipoPersonalidad(): Personalidad {
+        val FECHA_ACTUAL = LocalDate.now()
+
+        if(FECHA_ACTUAL.monthValue.even()) {
+            return Culposos()
+        }
+        else {
+            return AltoPerfil()
+        }
+    }
+}
 
 abstract class Banda(var lider: Integrante) {
     var dineroRecaudado : Double = 0.0
@@ -100,15 +143,19 @@ abstract class Banda(var lider: Integrante) {
         (dineroRecaudado > 0) && condicionBanda(tarea)
 
     abstract fun condicionBanda(tarea: Tarea): Boolean
+    fun integrantesMasLider() = integrantes.union(mutableListOf(lider))
     fun recibirDinero(dinero:Double){
         dineroRecaudado += dinero
+    }
+    fun restarDinero(dinero:Double){
+        dineroRecaudado -= dinero
     }
 }
 class Forajida(lider: Integrante) : Banda(lider) {
     override fun condicionBanda(tarea: Tarea): Boolean = integrantes.any { it.puedeHacerTarea(tarea) }
 }
 class Sorora(lider: Integrante) : Banda(lider) {
-    override fun condicionBanda(tarea: Tarea): Boolean = integrantes.all { it.puedeHacerTarea(tarea) }
+    override fun condicionBanda(tarea: Tarea): Boolean = integrantesMasLider().all { it.puedeHacerTarea(tarea) }
 
 }
 class Tipica(lider: Integrante) :Banda(lider){
@@ -213,6 +260,8 @@ class CobrarCuota(numMes: Int, numAnio: Int, personaInvolucrada: Persona, val mo
     }
 }
 //cosas para el funcionamiento del codigo
+
+fun Int.even() = this % 2 == 0
 interface WhatsApp{
     fun sendMessage(dataMessage:DataMessage)
 }
