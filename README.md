@@ -49,3 +49,6 @@ La personalidad debe poder modificarse dinámicamente, de manera de pasar de alt
 
 Se pide que realice un diagrama de clases de la solución general e implemente el código que permita resolver todo el circuito de la aplicación.
 
+#Diagrama UML
+﻿![](diagrama UML.png)
+
